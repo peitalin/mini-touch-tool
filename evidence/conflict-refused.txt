@@ -1,0 +1,3 @@
+The following is a diff from the previous accessibility tree for Window: "Mini Touch Tool" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
++		37 text Move and resize need different modifiers.
+The focused UI element is 0 standard window Mini Touch Tool, Secondary Actions: Raise
