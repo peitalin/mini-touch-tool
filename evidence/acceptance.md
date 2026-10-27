@@ -18,12 +18,27 @@ Target: Apple Silicon, macOS 15.7.1.
 | Restore and retain the five default rules across an app restart | Pass |
 | Register Launch at Login with macOS | Pass — service status enabled |
 | Discover the built-in trackpad through the private interface | Pass — one trackpad |
-| Live keyboard and physical gesture actions | Pending |
+| Live tab shortcuts | Pass — operator checked |
+| Fn move and Fn-Shift resize | Pass — operator checked |
+| Four-finger swipe down | Pass — operator checked |
+| Three-finger click after the 1.0.1 fix | Pass — operator checked after the app restart |
 | Actual logout/login startup | Pending |
 
 The native UI supplied the settings outcomes. The preference record confirmed the saved window values.
-The app signature changed during development, so the final build needs fresh permission grants.
+The app signature changed during development. Scoped macOS logs proved that both permission grants still referenced earlier signatures.
+A per-app reset and fresh grants restored one enabled input hook. The operator then confirmed the keyboard, Fn, and swipe controls.
 The command-line diagnostic can inherit its parent process's permissions. It does not prove the GUI app has access.
+
+The physical click probe then found two causes for the remaining gesture failure:
+
+- A three-finger press produced both left-button and right-button events. The initial app observed only the left button.
+- The click and contact timestamps differed by more than nine seconds. The initial freshness check compared these separate clocks.
+
+Version 1.0.1 observes both button paths and consumes each matching release.
+It measures contact freshness with the host clock at delivery. It retains the existing trackpad clock for swipe durations.
+See [the physical input samples](three-finger-click-before-fix.txt). No typed text was recorded.
+After fresh grants and an app restart, the system reported one enabled input hook with the updated button mask.
+The operator then confirmed that the three-finger click works. A real logout/login startup remains unchecked.
 
 ## Repeatable live scenario
 

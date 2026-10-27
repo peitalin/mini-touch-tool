@@ -5,7 +5,8 @@ import ServiceManagement
 let application = NSApplication.shared
 
 if CommandLine.arguments.contains("--diagnose") {
-    print("Mini Touch Tool 1.0")
+    let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+    print("Mini Touch Tool \(version)")
     print("macOS: \(ProcessInfo.processInfo.operatingSystemVersionString)")
     print("Accessibility: \(AXIsProcessTrusted())")
     print("Input Monitoring: \(CGPreflightListenEventAccess())")

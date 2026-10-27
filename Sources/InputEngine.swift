@@ -9,6 +9,12 @@ private enum PressedKey {
     case consumed
 }
 
+private enum ConsumedClick {
+    case none
+    case left
+    case right
+}
+
 private enum DragState {
     case idle
     case armed(WindowDrag)
@@ -23,7 +29,7 @@ private enum SwipeState {
 
 private struct ContactState {
     let count: Int
-    let timestamp: Double
+    let receivedAt: Double
     let swipe: SwipeState
 }
 
@@ -38,7 +44,7 @@ final class InputEngine {
     private var drag: DragState = .idle
     private var contacts: [UInt: ContactState] = [:]
     private var pressedKeys: [CGKeyCode: PressedKey] = [:]
-    private var swallowedClick = false
+    private var consumedClick: ConsumedClick = .none
     private var lastWindowUpdate: Double = 0
     private(set) var trackpadCount = 0
     private(set) var lastAction = "No shortcut used yet"
@@ -49,6 +55,7 @@ final class InputEngine {
         let mask = eventMask(.keyDown) | eventMask(.keyUp) | eventMask(.flagsChanged)
             | eventMask(.mouseMoved) | eventMask(.leftMouseDragged) | eventMask(.rightMouseDragged)
             | eventMask(.otherMouseDragged) | eventMask(.leftMouseDown) | eventMask(.leftMouseUp)
+            | eventMask(.rightMouseDown) | eventMask(.rightMouseUp)
         guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap,
                                          place: .headInsertEventTap,
                                          options: .defaultTap,
@@ -91,22 +98,23 @@ final class InputEngine {
         if type == .keyDown || type == .keyUp {
             return handleKey(type: type, event: event)
         }
-        if type == .leftMouseUp && swallowedClick {
-            swallowedClick = false
+        switch (type, consumedClick) {
+        case (.leftMouseUp, .left), (.rightMouseUp, .right):
+            consumedClick = .none
             return nil
+        case (.leftMouseDragged, .left), (.rightMouseDragged, .right):
+            return nil
+        default:
+            break
         }
-        if type == .leftMouseDown {
-            swallowedClick = false
-            let now = Double(event.timestamp) / 1_000_000_000
+        if (type == .leftMouseDown || type == .rightMouseDown), case .none = consumedClick {
+            let now = ProcessInfo.processInfo.systemUptime
             if NSEvent(cgEvent: event)?.subtype == .touch && hasThreeFingers(at: now),
                let rule = matchingRule(.trackpad(.threeFingerClick)) {
-                swallowedClick = true
+                consumedClick = type == .leftMouseDown ? .left : .right
                 performAction(rule)
                 return nil
             }
-        }
-        if type == .leftMouseDragged && swallowedClick {
-            return nil
         }
         handleWindowControl(type: type, event: event)
         return Unmanaged.passUnretained(event)
@@ -118,7 +126,8 @@ final class InputEngine {
         let previous = contacts[key]?.swipe ?? .idle
         let point = CGPoint(x: frame.x, y: frame.y)
         let swipe = nextSwipe(previous, count: Int(frame.count), point: point, timestamp: frame.timestamp)
-        contacts[key] = ContactState(count: Int(frame.count), timestamp: frame.timestamp, swipe: swipe)
+        // Multitouch timestamps use a different clock from the host's input events.
+        contacts[key] = ContactState(count: Int(frame.count), receivedAt: ProcessInfo.processInfo.systemUptime, swipe: swipe)
     }
 
     private func nextSwipe(_ state: SwipeState, count: Int, point: CGPoint, timestamp: Double) -> SwipeState {
@@ -145,7 +154,8 @@ final class InputEngine {
 
     private func hasThreeFingers(at timestamp: Double) -> Bool {
         for state in contacts.values {
-            if state.count == 3 && abs(timestamp - state.timestamp) < 0.15 {
+            let age = timestamp - state.receivedAt
+            if state.count == 3 && age >= 0 && age < 0.15 {
                 return true
             }
         }

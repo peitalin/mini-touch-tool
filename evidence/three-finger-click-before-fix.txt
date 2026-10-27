@@ -1,0 +1,14 @@
+Physical input probe, macOS 15.7.1, 2026-10-27.
+The operator made three-finger physical presses on the built-in trackpad.
+Each row is an observed native event before the 1.0.1 fix.
+CG event types: 1/2 = left down/up; 3/4 = right down/up.
+NSEvent subtype 3 = touch. The probe counted three active contacts.
+
+CLICK type=3 subtype=3 count=3 eventTime=3278.192346666 contactTime=3268.65 delta=9.542346665999958
+CLICK type=4 subtype=3 count=3 eventTime=3278.392067166 contactTime=3268.85 delta=9.542067165999924
+CLICK type=1 subtype=3 count=3 eventTime=3318.209060083 contactTime=3308.62 delta=9.589060083000277
+CLICK type=2 subtype=3 count=3 eventTime=3318.363116 contactTime=3308.772 delta=9.591116000000056
+
+The initial app omitted right-button down/up from its event mask.
+Its contact freshness check required an absolute cross-clock difference below 0.15 seconds.
+Both independent gates refused the recorded right-button presses.

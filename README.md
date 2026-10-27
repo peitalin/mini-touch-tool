@@ -10,6 +10,7 @@ The app uses Swift, SwiftUI, and AppKit. It has no third-party runtime dependenc
 3. Open the app from Applications.
 4. In **Setup**, allow **Accessibility** and **Input Monitoring** for the installed app.
 5. Quit BetterTouchTool. Mini Touch Tool waits while BetterTouchTool runs.
+6. If permissions still appear unavailable, quit and reopen Mini Touch Tool.
 
 The menu bar icon opens the settings window. Close that window to leave the app active in the menu bar.
 Use **Setup → Launch at Login** to enable or disable startup when you sign in.
@@ -21,7 +22,8 @@ An updated local build can require you to remove and add the app again in both p
 Always select `/Applications/Mini Touch Tool.app` when you grant access.
 
 **Requirements:** Apple Silicon and macOS 15 or later. The initial build was checked on macOS 15.7.1.
-Physical gesture acceptance and a real login restart still require a check on the target Mac.
+The operator confirmed the keyboard shortcuts, Fn controls, and both physical gestures on the target Mac.
+A real logout/login startup remains unchecked.
 
 ## Default controls
 
