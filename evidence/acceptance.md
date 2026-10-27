@@ -2,6 +2,30 @@
 
 Target: Apple Silicon, macOS 15.7.1.
 
+## Version 1.0.3
+
+| Check | Result |
+| --- | --- |
+| Gradient icon with white trackpad lines | Pass — rendered from the shared icon source |
+| Menu bar outline has white pixels and a transparent background | Pass — inspected the generated menu bar asset |
+| Command-M on the settings window | Pass — native GUI journey |
+| Restore through the native Window menu | Pass — native GUI journey |
+| Command-W closes settings while the process stays active | Pass — native GUI journey |
+| Dock activation policy stays regular while minimized | Pass — system process snapshot |
+| Closing settings returns to menu bar mode | Pass — system process snapshot |
+| Different builds retain the same certificate identity | Pass — 1.0.2 to 1.0.3 |
+| Updated GUI process retains its input permission without a reset | Pass — enabled system input hook |
+| Settings-window three-finger close and four-finger minimize | Pass — operator confirmed all requested controls |
+| Finder and Dock icon appearance | Pass — operator confirmed the gradient design, then system icon exports confirmed the white-line revision |
+
+The native window journey is recorded in [window-lifecycle.txt](window-lifecycle.txt).
+The update journey is recorded in [persistent-signing-update.json](persistent-signing-update.json).
+The update changed the code hash and retained the designated requirement. No permission was reset or granted during the update.
+The local signing key stays in a separate keychain outside the repository.
+The final build 5 retained the same certificate requirement and one enabled input hook without another permission grant.
+The final icons appear in [Finder](finder-icon.png), [the Dock](dock-icon.png), and [the menu bar asset](menu-bar-icon.png).
+macOS uses the menu bar asset as a template. Its outline appears white on dark backgrounds and dark on light backgrounds.
+
 ## Observed results
 
 | Check | Result |

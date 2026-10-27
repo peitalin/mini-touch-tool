@@ -12,14 +12,18 @@ The app uses Swift, SwiftUI, and AppKit. It has no third-party runtime dependenc
 5. Quit BetterTouchTool. Mini Touch Tool waits while BetterTouchTool runs.
 6. If permissions still appear unavailable, quit and reopen Mini Touch Tool.
 
-The menu bar icon opens the settings window. Close that window to leave the app active in the menu bar.
+The menu bar icon opens the settings window. Its Dock icon appears while that window is open or minimized.
+Use the yellow window button or Command-M to minimize it. Click the Dock icon to restore it.
+Command-W and the three-finger click close settings. A four-finger swipe minimizes the window under the pointer, including settings.
+Close the settings window to leave the app active in the menu bar.
 Use **Setup → Launch at Login** to enable or disable startup when you sign in.
 The first launch enables this option.
 
-The personal build uses a local ad-hoc signature. It has no Apple notarization.
+The personal build uses a persistent local signing certificate. It has no Apple notarization.
 If macOS blocks a copy downloaded from GitHub, review it in **System Settings → Privacy & Security → Open Anyway**.
-An updated local build can require you to remove and add the app again in both permission panels.
-Always select `/Applications/Mini Touch Tool.app` when you grant access.
+The app requests missing permissions when its settings window is active.
+Releases signed with the same identity retain the existing privacy grants.
+Always select `/Applications/Mini Touch Tool.app` for the initial approval. Use **Setup → Restart App** if macOS requires a restart.
 
 **Requirements:** Apple Silicon and macOS 15 or later. The initial build was checked on macOS 15.7.1.
 The operator confirmed the keyboard shortcuts, Fn controls, and both physical gestures on the target Mac.
@@ -52,7 +56,7 @@ It also contains the movement threshold and the option to raise the window.
 Choose **Apply Changes** to save and activate your changes.
 The app refuses duplicate enabled rules and conflicting move and resize modifiers.
 
-**Setup** contains startup, permission, and input-restart controls.
+**Setup** contains startup, permission, and app-restart controls.
 The settings window also contains **Pause**, **Restore Defaults**, and **Quit**.
 
 ## Limits
@@ -62,7 +66,7 @@ The settings window also contains **Pause**, **Restore Defaults**, and **Quit**.
 - Gestures use Apple's private `MultitouchSupport.framework`. A macOS update can require changes to this code.
 - Secure Input and applications without window accessibility support can prevent some controls.
 - Full-screen windows stay outside the window controls. Applications enforce their own minimum window sizes.
-- If you connect another trackpad while the app runs, choose **Setup → Restart Input**.
+- If you connect another trackpad while the app runs, choose **Setup → Restart App**.
 - Key labels use the standard ANSI key names. The recorder stores physical key codes.
 
 ## Build
@@ -76,6 +80,12 @@ bash scripts/build.sh
 The result is `build/Mini Touch Tool.app`.
 Users of the compiled app do not need Xcode, a package manager, or Terminal.
 
+The first build creates a local signing certificate and an isolated keychain.
+macOS can request approval to trust that certificate for code signing by `/usr/bin/codesign` in your user account.
+The private key and keychain password stay outside the repository in
+`~/Library/Application Support/Mini Touch Tool Signing/`.
+Keep this identity for future releases. The build stops if its stored identity is incomplete.
+
 Create the drag-and-drop disk image and ZIP archive:
 
 ```sh
@@ -85,6 +95,10 @@ bash scripts/package.sh
 Build outputs stay outside Git. Release assets contain the compiled app.
 The app uses `SMAppService.mainApp` for login startup and macOS preferences for its settings.
 The private trackpad declarations stay in `Sources/Trackpad.m`.
+
+The application icon uses the supplied peach `#EEBD89` to magenta `#D13ABD` gradient and a white trackpad outline.
+The Dock uses this gradient icon. The menu bar uses a plain trackpad outline with a transparent background.
+macOS renders the menu bar outline white on dark backgrounds and dark on light backgrounds.
 
 ## Acceptance
 

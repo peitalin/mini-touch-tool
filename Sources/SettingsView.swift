@@ -125,7 +125,7 @@ struct SettingsView: View {
                     HStack {
                         Button("Accessibility…", action: model.requestAccessibility)
                         Button("Input Monitoring…", action: model.requestInputMonitoring)
-                        Button("Restart Input", action: model.restartInput)
+                        Button("Restart App", action: model.restartApplication)
                     }
                 }
                 Divider()

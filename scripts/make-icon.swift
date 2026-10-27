@@ -7,40 +7,69 @@ for size in [16, 32, 128, 256, 512] {
     try writeIcon(size: size, scale: 1, directory: output)
     try writeIcon(size: size, scale: 2, directory: output)
 }
+try writeMenuBarIcon(directory: output.deletingLastPathComponent())
 
 func writeIcon(size: Int, scale: Int, directory: URL) throws {
     let pixels = size * scale
-    let image = NSImage(size: NSSize(width: pixels, height: pixels))
-    image.lockFocus()
-    let context = NSGraphicsContext.current!.cgContext
+    guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: pixels,
+                                        bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                                        isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
+          let graphics = NSGraphicsContext(bitmapImageRep: bitmap) else {
+        throw CocoaError(.fileWriteUnknown)
+    }
+    let context = graphics.cgContext
     context.scaleBy(x: CGFloat(pixels) / 1024, y: CGFloat(pixels) / 1024)
 
-    let background = NSBezierPath(roundedRect: NSRect(x: 80, y: 80, width: 864, height: 864), xRadius: 196, yRadius: 196)
-    NSColor(calibratedRed: 0.12, green: 0.34, blue: 0.34, alpha: 1).setFill()
-    background.fill()
-
-    let trackpad = NSBezierPath(roundedRect: NSRect(x: 232, y: 260, width: 560, height: 476), xRadius: 60, yRadius: 60)
-    NSColor(calibratedWhite: 0.98, alpha: 1).setFill()
-    trackpad.fill()
-
-    NSColor(calibratedRed: 0.12, green: 0.34, blue: 0.34, alpha: 1).setFill()
-    for x in [372, 480, 588] {
-        NSBezierPath(roundedRect: NSRect(x: x, y: 428, width: 64, height: 140), xRadius: 32, yRadius: 32).fill()
+    let colors = [NSColor(srgbRed: 238.0 / 255, green: 189.0 / 255, blue: 137.0 / 255, alpha: 1).cgColor,
+                  NSColor(srgbRed: 209.0 / 255, green: 58.0 / 255, blue: 189.0 / 255, alpha: 1).cgColor]
+    guard let gradient = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB),
+                                    colors: colors as CFArray, locations: nil) else {
+        throw CocoaError(.fileWriteUnknown)
     }
+    context.saveGState()
+    context.addPath(CGPath(roundedRect: CGRect(x: 80, y: 80, width: 864, height: 864),
+                           cornerWidth: 196, cornerHeight: 196, transform: nil))
+    context.clip()
+    context.drawLinearGradient(gradient, start: CGPoint(x: 80, y: 944), end: CGPoint(x: 944, y: 80), options: [])
+    context.restoreGState()
 
-    NSColor(calibratedWhite: 0.8, alpha: 1).setStroke()
-    let line = NSBezierPath()
-    line.move(to: NSPoint(x: 270, y: 360))
-    line.line(to: NSPoint(x: 754, y: 360))
-    line.lineWidth = 8
-    line.stroke()
-    image.unlockFocus()
+    drawTrackpad(in: context, lineWidth: max(24, 1280 / CGFloat(pixels)))
 
-    guard let tiff = image.tiffRepresentation,
-          let bitmap = NSBitmapImageRep(data: tiff),
-          let data = bitmap.representation(using: .png, properties: [:]) else {
+    guard let data = bitmap.representation(using: .png, properties: [:]) else {
         throw CocoaError(.fileWriteUnknown)
     }
     let suffix = scale == 2 ? "@2x" : ""
     try data.write(to: directory.appendingPathComponent("icon_\(size)x\(size)\(suffix).png"))
+}
+
+func writeMenuBarIcon(directory: URL) throws {
+    guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 40, pixelsHigh: 40,
+                                        bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                                        isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
+          let graphics = NSGraphicsContext(bitmapImageRep: bitmap) else {
+        throw CocoaError(.fileWriteUnknown)
+    }
+    let context = graphics.cgContext
+    context.scaleBy(x: 40.0 / 640, y: 40.0 / 640)
+    context.translateBy(x: -192, y: -192)
+    drawTrackpad(in: context, lineWidth: 44)
+
+    guard let data = bitmap.representation(using: .png, properties: [:]) else {
+        throw CocoaError(.fileWriteUnknown)
+    }
+    try data.write(to: directory.appendingPathComponent("MenuBarIcon.png"))
+}
+
+func drawTrackpad(in context: CGContext, lineWidth: CGFloat) {
+    context.setStrokeColor(NSColor.white.cgColor)
+    context.setLineWidth(lineWidth)
+    context.setLineCap(.round)
+    context.setLineJoin(.round)
+    context.addPath(CGPath(roundedRect: CGRect(x: 236, y: 292, width: 552, height: 440),
+                           cornerWidth: 64, cornerHeight: 64, transform: nil))
+    context.move(to: CGPoint(x: 236, y: 448))
+    context.addLine(to: CGPoint(x: 788, y: 448))
+    context.move(to: CGPoint(x: 512, y: 292))
+    context.addLine(to: CGPoint(x: 512, y: 448))
+    context.strokePath()
 }

@@ -1,0 +1,12 @@
+Native GUI journey, macOS 15.7.1. Activation policy 0 means regular (Dock); 1 means accessory (menu bar).
+
+Open:
+PID=63011 activationPolicy=0 visibleSettingsWindows=1
+
+After Command-M:
+PID=63011 activationPolicy=0 visibleSettingsWindows=0
+
+After restore and Command-W:
+PID=63011 activationPolicy=1 visibleSettingsWindows=0
+
+The same process remained active throughout the journey.

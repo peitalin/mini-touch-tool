@@ -6,12 +6,19 @@ enum WindowOperation {
     case resize
 }
 
+private enum WindowOwner {
+    case thisApp(NSWindow)
+    case external(element: AXUIElement, processID: pid_t)
+}
+
 struct WindowTarget {
-    let element: AXUIElement
-    let processID: pid_t
+    private let owner: WindowOwner
     let frame: CGRect
 
     static func underPointer(_ point: CGPoint) -> WindowTarget? {
+        if let window = localWindowUnderPointer(point) {
+            return WindowTarget(owner: .thisApp(window), frame: hostFrame(window))
+        }
         let system = AXUIElementCreateSystemWide()
         AXUIElementSetMessagingTimeout(system, 0.1)
         var hit: AXUIElement?
@@ -37,39 +44,101 @@ struct WindowTarget {
               let frame = windowFrame(window) else {
             return nil
         }
-        return WindowTarget(element: window, processID: processID, frame: frame)
+        return WindowTarget(owner: .external(element: window, processID: processID), frame: frame)
     }
 
     func supports(_ operation: WindowOperation) -> Bool {
-        switch operation {
-        case .move:
+        switch (owner, operation) {
+        case (.thisApp(let window), .move):
+            return window.isMovable
+        case (.thisApp(let window), .resize):
+            return window.styleMask.contains(.resizable)
+        case (.external(let element, _), .move):
             return isSettable(element, kAXPositionAttribute)
-        case .resize:
+        case (.external(let element, _), .resize):
             return isSettable(element, kAXSizeAttribute)
         }
     }
 
     func raise() {
-        NSRunningApplication(processIdentifier: processID)?.activate(options: [])
-        AXUIElementPerformAction(element, kAXRaiseAction as CFString)
+        switch owner {
+        case .thisApp(let window):
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil)
+        case .external(let element, let processID):
+            NSRunningApplication(processIdentifier: processID)?.activate(options: [])
+            AXUIElementPerformAction(element, kAXRaiseAction as CFString)
+        }
     }
 
     func minimize() -> Bool {
-        AXUIElementSetAttributeValue(element, kAXMinimizedAttribute as CFString, kCFBooleanTrue) == .success
+        switch owner {
+        case .thisApp(let window):
+            guard window.styleMask.contains(.miniaturizable) else { return false }
+            window.performMiniaturize(nil)
+            return window.isMiniaturized
+        case .external(let element, _):
+            return AXUIElementSetAttributeValue(element, kAXMinimizedAttribute as CFString, kCFBooleanTrue) == .success
+        }
     }
 
     func move(to point: CGPoint) {
-        var point = point
-        guard let value = AXValueCreate(.cgPoint, &point) else { return }
-        AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, value)
+        switch owner {
+        case .thisApp(let window):
+            window.setFrameOrigin(NSPoint(x: point.x, y: hostScreenHeight() - point.y - window.frame.height))
+        case .external(let element, _):
+            var point = point
+            guard let value = AXValueCreate(.cgPoint, &point) else { return }
+            AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, value)
+        }
     }
 
     func resize(to size: CGSize) -> CGSize {
-        var size = size
-        guard let value = AXValueCreate(.cgSize, &size) else { return frame.size }
-        AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, value)
-        return windowFrame(element)?.size ?? frame.size
+        switch owner {
+        case .thisApp(let window):
+            let width = min(max(size.width, window.minSize.width), window.maxSize.width)
+            let height = min(max(size.height, window.minSize.height), window.maxSize.height)
+            var resized = window.frame
+            resized.origin.y += resized.height - height
+            resized.size = CGSize(width: width, height: height)
+            window.setFrame(resized, display: true)
+            return window.frame.size
+        case .external(let element, _):
+            var size = size
+            guard let value = AXValueCreate(.cgSize, &size) else { return frame.size }
+            AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, value)
+            return windowFrame(element)?.size ?? frame.size
+        }
     }
+}
+
+private func localWindowUnderPointer(_ point: CGPoint) -> NSWindow? {
+    guard let records = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+        return nil
+    }
+    for record in records {
+        guard let layer = record[kCGWindowLayer as String] as? Int, layer == 0,
+              let alpha = record[kCGWindowAlpha as String] as? Double, alpha > 0,
+              let bounds = record[kCGWindowBounds as String] as? [String: Any],
+              let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary), frame.contains(point),
+              let processID = record[kCGWindowOwnerPID as String] as? pid_t,
+              let number = record[kCGWindowNumber as String] as? Int else { continue }
+        guard processID == getpid() else { return nil }
+        for window in NSApplication.shared.windows where window.windowNumber == number {
+            return window.styleMask.contains(.fullScreen) ? nil : window
+        }
+        return nil
+    }
+    return nil
+}
+
+private func hostScreenHeight() -> CGFloat {
+    CGDisplayBounds(CGMainDisplayID()).height
+}
+
+private func hostFrame(_ window: NSWindow) -> CGRect {
+    let frame = window.frame
+    return CGRect(x: frame.minX, y: hostScreenHeight() - frame.maxY, width: frame.width, height: frame.height)
 }
 
 struct WindowDrag {

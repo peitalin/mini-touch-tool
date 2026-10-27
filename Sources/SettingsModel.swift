@@ -73,7 +73,7 @@ final class SettingsModel: ObservableObject {
     func toggleLogin() { controller.toggleLogin() }
     func requestAccessibility() { controller.requestAccessibility() }
     func requestInputMonitoring() { controller.requestInputMonitoring() }
-    func restartInput() { controller.restartInput() }
+    func restartApplication() { controller.restartApplication() }
     func openTrackpadSettings() { controller.openTrackpadSettings() }
     func quit() { NSApplication.shared.terminate(nil) }
 

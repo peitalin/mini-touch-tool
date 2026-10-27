@@ -1,0 +1,23 @@
+{
+  "before": {
+    "version": "1.0.2",
+    "requirement": "designated => identifier \"com.peitalin.MiniTouchTool\" and certificate leaf = H\"4bbd32a68bcd0855c4269f279e325dc43bd8d284\"",
+    "codeHash": "197c3a4889f5a6f43adaf3b7fdab38eef491233c",
+    "signer": "Mini Touch Tool Local Signing",
+    "inputHook": [
+      "pid=57497 enabled=true location=1 mask=134225150 latencyUs=375.37375"
+    ]
+  },
+  "after": {
+    "version": "1.0.3",
+    "build": "5",
+    "requirement": "designated => identifier \"com.peitalin.MiniTouchTool\" and certificate leaf = H\"4bbd32a68bcd0855c4269f279e325dc43bd8d284\"",
+    "codeHash": "bc66e781ea621dc66932075ad731108702b93218",
+    "signer": "Mini Touch Tool Local Signing",
+    "inputHook": [
+      "pid=79736 enabled=true location=1 mask=134225150 latencyUs=1078054.5"
+    ]
+  },
+  "permissionsResetDuringUpdate": false,
+  "result": "The updated GUI app created an enabled input hook without new permission grants."
+}

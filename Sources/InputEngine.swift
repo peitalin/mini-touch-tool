@@ -185,9 +185,6 @@ final class InputEngine {
             pressedKeys[keyCode] = .consumed
             return nil
         }
-        if NSWorkspace.shared.frontmostApplication?.bundleIdentifier == Bundle.main.bundleIdentifier {
-            return Unmanaged.passUnretained(event)
-        }
         let trigger = ShortcutTrigger.keyboard(KeyChord(keyCode: keyCode, modifiers: modifierKeys(event.flags)))
         guard let rule = matchingRule(trigger) else { return Unmanaged.passUnretained(event) }
         lastAction = "\(rule.trigger.label) → \(rule.action.label)"

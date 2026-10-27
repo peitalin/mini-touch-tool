@@ -14,19 +14,28 @@ private enum AppState {
     case failed
 }
 
+private enum PrivacyPermission: Hashable {
+    case accessibility
+    case inputMonitoring
+}
+
 final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var state: AppState = .stopped
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private var settingsWindow: NSWindow?
     private var permissionTimer: Timer?
+    private var requestedPermissions: Set<PrivacyPermission> = []
     private(set) var configuration = loadConfiguration()
     private lazy var settingsModel = SettingsModel(controller: self, configuration: configuration)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        statusItem.button?.image = NSImage(systemSymbolName: "cursorarrow.motionlines", accessibilityDescription: "Mini Touch Tool")
+        statusItem.button?.image = NSImage(named: "MenuBarIcon")
+        statusItem.button?.image?.size = NSSize(width: 20, height: 20)
+        statusItem.button?.image?.isTemplate = true
         statusItem.button?.setAccessibilityLabel("Mini Touch Tool")
         statusItem.button?.target = self
         statusItem.button?.action = #selector(showSettings)
+        configureApplicationMenu()
         let center = NSWorkspace.shared.notificationCenter
         center.addObserver(self, selector: #selector(applicationsChanged), name: NSWorkspace.didLaunchApplicationNotification, object: nil)
         center.addObserver(self, selector: #selector(applicationsChanged), name: NSWorkspace.didTerminateApplicationNotification, object: nil)
@@ -48,15 +57,41 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationWillTerminate(_ notification: Notification) { stopInput() }
 
+    func applicationDidBecomeActive(_ notification: Notification) {
+        if settingsWindow?.isVisible == true { promptForMissingPermissions() }
+    }
+
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showSettings()
         return false
     }
 
     func windowWillClose(_ notification: Notification) {
+        NSApplication.shared.setActivationPolicy(.accessory)
         permissionTimer?.invalidate()
         permissionTimer = nil
         updatePermissionTimer()
+    }
+
+    private func configureApplicationMenu() {
+        let mainMenu = NSMenu()
+        let applicationItem = NSMenuItem()
+        let applicationMenu = NSMenu(title: "Mini Touch Tool")
+        applicationMenu.addItem(withTitle: "Hide Mini Touch Tool", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        applicationMenu.addItem(.separator())
+        applicationMenu.addItem(withTitle: "Quit Mini Touch Tool", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        applicationItem.submenu = applicationMenu
+        mainMenu.addItem(applicationItem)
+
+        let windowItem = NSMenuItem()
+        let windowMenu = NSMenu(title: "Window")
+        windowMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        windowMenu.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        windowItem.submenu = windowMenu
+        mainMenu.addItem(windowItem)
+        NSApplication.shared.mainMenu = mainMenu
+        NSApplication.shared.windowsMenu = windowMenu
     }
 
     func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
@@ -123,13 +158,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         case .waitingForAccess: settingsModel.status = "Allow Accessibility and Input Monitoring in Setup"
         case .betterTouchToolRunning: settingsModel.status = "Quit BetterTouchTool to enable shortcuts"
         case .running: settingsModel.status = "Shortcuts enabled"
-        case .failed: settingsModel.status = "Input unavailable. Grant access, then restart input in Setup."
+        case .failed: settingsModel.status = "Input unavailable. Grant access, then restart the app in Setup."
         }
         if case .running(let engine) = state {
             settingsModel.isRunning = true
             switch engine.trackpadCount {
             case -1: settingsModel.detail = "Gesture interface unavailable."
-            case 0: settingsModel.detail = "No trackpad. Connect it, then select Restart Input."
+            case 0: settingsModel.detail = "No trackpad. Connect it, then select Restart App."
             default: settingsModel.detail = "Trackpads: \(engine.trackpadCount). \(engine.lastAction)."
             }
         } else {
@@ -168,6 +203,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func requestAccessibility() {
+        requestedPermissions.insert(.accessibility)
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         AXIsProcessTrustedWithOptions(options)
         openSettings("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
@@ -175,6 +211,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func requestInputMonitoring() {
+        requestedPermissions.insert(.inputMonitoring)
         CGRequestListenEventAccess()
         openSettings("x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")
         reconcile()
@@ -185,7 +222,38 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func applicationsChanged() { reconcile() }
-    @objc private func permissionsChanged() { reconcile() }
+    @objc private func permissionsChanged() {
+        reconcile()
+        if settingsWindow?.isVisible == true { promptForMissingPermissions() }
+    }
+
+    private func promptForMissingPermissions() {
+        guard case .waitingForAccess = state, NSApplication.shared.isActive else { return }
+        if !AXIsProcessTrusted() {
+            if requestedPermissions.insert(.accessibility).inserted {
+                let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+                AXIsProcessTrustedWithOptions(options)
+            }
+            return
+        }
+        if !CGPreflightListenEventAccess() && requestedPermissions.insert(.inputMonitoring).inserted {
+            CGRequestListenEventAccess()
+        }
+    }
+
+    func restartApplication() {
+        let launcher = Process()
+        launcher.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        launcher.arguments = ["-n", Bundle.main.bundleURL.path]
+        do {
+            stopInput()
+            try launcher.run()
+            NSApplication.shared.terminate(nil)
+        } catch {
+            settingsModel.message = "Could not restart: \(error.localizedDescription)"
+            reconcile()
+        }
+    }
 
     @objc private func sessionLocked() {
         stopInput()
@@ -207,6 +275,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func showSettings() {
         reconcile()
+        NSApplication.shared.setActivationPolicy(.regular)
+        if let icon = Bundle.main.url(forResource: "AppIcon", withExtension: "icns") {
+            NSApplication.shared.applicationIconImage = NSImage(contentsOf: icon)
+        }
         if settingsWindow == nil {
             let controller = NSHostingController(rootView: SettingsView(model: settingsModel))
             let window = NSWindow(contentViewController: controller)
@@ -221,7 +293,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             settingsWindow = window
         }
         NSApplication.shared.activate(ignoringOtherApps: true)
+        settingsWindow?.deminiaturize(nil)
         settingsWindow?.makeKeyAndOrderFront(nil)
+        promptForMissingPermissions()
     }
 }
 
